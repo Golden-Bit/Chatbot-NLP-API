@@ -24,7 +24,7 @@ app.add_middleware(
 with open("config.json") as config_file:
     config = json.load(config_file)
 
-BASE_URL = config["base_url"]
+NLP_CORE_SERVICE = config["nlp_core_service"]
 openai_api_keys = config["openai_api_keys"]
 
 
@@ -48,7 +48,7 @@ def get_random_openai_api_key():
 async def create_context_on_server(context_path: str, metadata: Optional[Dict[str, Any]] = None):
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{BASE_URL}/data_stores/create_directory",
+            f"{NLP_CORE_SERVICE}/data_stores/create_directory",
             data={
                 "directory": context_path,
                 "extra_metadata": metadata and json.dumps(metadata)
@@ -60,14 +60,14 @@ async def create_context_on_server(context_path: str, metadata: Optional[Dict[st
 
 async def delete_context_on_server(context_path: str):
     async with httpx.AsyncClient() as client:
-        response = await client.delete(f"{BASE_URL}/data_stores/delete_directory/{context_path}")
+        response = await client.delete(f"{NLP_CORE_SERVICE}/data_stores/delete_directory/{context_path}")
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.json())
         return response.json()
 
 async def list_contexts_from_server():
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{BASE_URL}/data_stores/directories")
+        response = await client.get(f"{NLP_CORE_SERVICE}/data_stores/directories")
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.json())
         return response.json()
@@ -92,7 +92,7 @@ async def upload_file_to_contexts_(file: UploadFile, contexts: List[str],
             files = {"file": (file.filename, file_content, file.content_type)}
 
             # Make the POST request to upload the file to the current context
-            response = await client.post(f"{BASE_URL}/data_stores/upload", data=data, files=files)
+            response = await client.post(f"{NLP_CORE_SERVICE}/data_stores/upload", data=data, files=files)
 
             # Log and handle errors
             if response.status_code != 200:
@@ -137,7 +137,7 @@ async def upload_file_to_contexts(file: UploadFile,
             files = {"file": (file.filename, file_content, file.content_type)}
 
             # Make the POST request to upload the file to the current context
-            response = await client.post(f"{BASE_URL}/data_stores/upload", data=data, files=files, timeout=timeout_settings)
+            response = await client.post(f"{NLP_CORE_SERVICE}/data_stores/upload", data=data, files=files, timeout=timeout_settings)
 
             if response.status_code != 200:
                 print(
@@ -202,12 +202,12 @@ async def upload_file_to_contexts(file: UploadFile,
               }
 
             # Configure the loader on the original API
-            loader_response = await client.post(f"{BASE_URL}/document_loaders/configure_loader", json=loader_config_data)
+            loader_response = await client.post(f"{NLP_CORE_SERVICE}/document_loaders/configure_loader", json=loader_config_data)
             if loader_response.status_code != 200 and loader_response.status_code != 400:
                 raise HTTPException(status_code=loader_response.status_code, detail=loader_response.json())
 
             # Apply the loader to process the document
-            load_response = await client.post(f"{BASE_URL}/document_loaders/load_documents/{loader_config_id}", timeout=timeout_settings)
+            load_response = await client.post(f"{NLP_CORE_SERVICE}/document_loaders/load_documents/{loader_config_id}", timeout=timeout_settings)
             if load_response.status_code != 200:
                 raise HTTPException(status_code=load_response.status_code, detail=load_response.json())
 
@@ -238,21 +238,21 @@ async def upload_file_to_contexts(file: UploadFile,
 
             # Configure the vector store
             vector_store_response = await client.post(
-                f"{BASE_URL}/vector_stores/vector_store/configure", json=vector_store_config, timeout=timeout_settings)
+                f"{NLP_CORE_SERVICE}/vector_stores/vector_store/configure", json=vector_store_config, timeout=timeout_settings)
             if vector_store_response.status_code != 200 and vector_store_response.status_code != 400:
                 raise HTTPException(status_code=vector_store_response.status_code, detail=vector_store_response.json())
 
             #vector_store_config_id = vector_store_response.json()["config_id"]
 
             ### Load the Vector Store ###
-            load_vector_response = await client.post(f"{BASE_URL}/vector_stores/vector_store/load/{vector_store_config_id}", timeout=timeout_settings)
+            load_vector_response = await client.post(f"{NLP_CORE_SERVICE}/vector_stores/vector_store/load/{vector_store_config_id}", timeout=timeout_settings)
             if load_vector_response.status_code != 200 and load_vector_response.status_code != 400:
                 raise HTTPException(status_code=load_vector_response.status_code, detail=load_vector_response.json())
 
             ### Add Documents from the Document Store to the Vector Store ###
             # Use the document collection name associated with the context
             add_docs_response = await client.post(
-                f"{BASE_URL}/vector_stores/vector_store/add_documents_from_store/{vector_store_id}",
+                f"{NLP_CORE_SERVICE}/vector_stores/vector_store/add_documents_from_store/{vector_store_id}",
                 params={"document_collection": doc_store_collection_name}, timeout=timeout_settings)
             if add_docs_response.status_code != 200:
                 print(add_docs_response)
@@ -304,14 +304,14 @@ async def list_files_in_context(contexts: Optional[List[str]] = None):
             # If contexts are provided, filter files by those contexts
             files = []
             for context in contexts:
-                response = await client.get(f"{BASE_URL}/data_stores/files", params={"subdir": context})
+                response = await client.get(f"{NLP_CORE_SERVICE}/data_stores/files", params={"subdir": context})
                 if response.status_code != 200:
                     raise HTTPException(status_code=response.status_code, detail=response.json())
                 files.extend(response.json())
             return files
         else:
             # No context specified, list all files across all contexts
-            response = await client.get(f"{BASE_URL}/data_stores/files")
+            response = await client.get(f"{NLP_CORE_SERVICE}/data_stores/files")
             if response.status_code != 200:
                 raise HTTPException(status_code=response.status_code, detail=response.json())
             return response.json()
@@ -321,7 +321,7 @@ async def list_files_in_context(contexts: Optional[List[str]] = None):
 async def delete_file_by_id(file_id: str):
     async with httpx.AsyncClient() as client:
         # List all contexts to find where the file exists
-        response = await client.get(f"{BASE_URL}/data_stores/files")
+        response = await client.get(f"{NLP_CORE_SERVICE}/data_stores/files")
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.json())
 
@@ -330,7 +330,7 @@ async def delete_file_by_id(file_id: str):
         for file in files:
             if file['custom_metadata'].get('file_uuid') == file_id:
                 path = file['path']
-                delete_response = await client.delete(f"{BASE_URL}/data_stores/delete/{path}")
+                delete_response = await client.delete(f"{NLP_CORE_SERVICE}/data_stores/delete/{path}")
                 if delete_response.status_code != 200:
                     raise HTTPException(status_code=delete_response.status_code, detail=delete_response.json())
         return {"detail": f"File with ID {file_id} deleted from all contexts"}
@@ -339,7 +339,7 @@ async def delete_file_by_id(file_id: str):
 # Helper function to delete file by path
 async def delete_file_by_path(file_path: str):
     async with httpx.AsyncClient() as client:
-        response = await client.delete(f"{BASE_URL}/delete/data_stores/{file_path}")
+        response = await client.delete(f"{NLP_CORE_SERVICE}/delete/data_stores/{file_path}")
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.json())
         return {"detail": f"File at path {file_path} deleted successfully"}
@@ -391,7 +391,7 @@ async def configure_and_load_chain_(context: str = Body(..., title="Context", de
     async with httpx.AsyncClient() as client:
         try:
             # 1. Configurazione della chain
-            configure_url = f"{BASE_URL}/chains/configure_chain/"
+            configure_url = f"{NLP_CORE_SERVICE}/chains/configure_chain/"
             configure_response = await client.post(configure_url, json=chain_config)
 
             if configure_response.status_code != 200 and configure_response.status_code != 400:
@@ -400,7 +400,7 @@ async def configure_and_load_chain_(context: str = Body(..., title="Context", de
             configure_result = configure_response.json()
 
             # 2. Caricamento della chain
-            load_url = f"{BASE_URL}/chains/load_chain/{chain_config['config_id']}"
+            load_url = f"{NLP_CORE_SERVICE}/chains/load_chain/{chain_config['config_id']}"
             load_response = await client.post(load_url)
 
             if load_response.status_code != 200 and load_response.status_code != 400:
@@ -440,7 +440,7 @@ async def configure_and_load_chain(
 
     async with httpx.AsyncClient() as client:
         # 1. Caricamento dell'LLM
-        load_llm_url = f"{BASE_URL}/llms/load_model/{llm_config_id}"
+        load_llm_url = f"{NLP_CORE_SERVICE}/llms/load_model/{llm_config_id}"
         llm_response = await client.post(load_llm_url, timeout=timeout_settings)
 
         if llm_response.status_code != 200 and llm_response.status_code != 400:
@@ -468,14 +468,14 @@ async def configure_and_load_chain(
 
         # Configura il vector store
         vector_store_response = await client.post(
-            f"{BASE_URL}/vector_stores/vector_store/configure", json=vector_store_config, timeout=timeout_settings
+            f"{NLP_CORE_SERVICE}/vector_stores/vector_store/configure", json=vector_store_config, timeout=timeout_settings
         )
         if vector_store_response.status_code != 200 and vector_store_response.status_code != 400:
             raise HTTPException(status_code=vector_store_response.status_code, detail=vector_store_response.json())
 
         # Carica il vector store
         load_vector_response = await client.post(
-            f"{BASE_URL}/vector_stores/vector_store/load/{vector_store_config_id}", timeout=timeout_settings
+            f"{NLP_CORE_SERVICE}/vector_stores/vector_store/load/{vector_store_config_id}", timeout=timeout_settings
         )
         if load_vector_response.status_code != 200 and load_vector_response.status_code != 400:
             raise HTTPException(status_code=load_vector_response.status_code, detail=load_vector_response.json())
@@ -493,7 +493,7 @@ async def configure_and_load_chain(
     async with httpx.AsyncClient() as client:
         try:
             # 1. Configura la chain
-            configure_url = f"{BASE_URL}/chains/configure_chain/"
+            configure_url = f"{NLP_CORE_SERVICE}/chains/configure_chain/"
             configure_response = await client.post(configure_url, json=chain_config)
 
             if configure_response.status_code != 200 and configure_response.status_code != 400:
@@ -502,7 +502,7 @@ async def configure_and_load_chain(
             configure_result = configure_response.json()
 
             # 2. Carica la chain
-            load_url = f"{BASE_URL}/chains/load_chain/{chain_config['config_id']}"
+            load_url = f"{NLP_CORE_SERVICE}/chains/load_chain/{chain_config['config_id']}"
             load_response = await client.post(load_url)
 
             if load_response.status_code != 200 and load_response.status_code != 400:
@@ -535,7 +535,7 @@ async def execute_chain(
         chain_id: str = Query(..., title="Chain ID", description="The unique ID of the chain to execute"),
         query: Dict[str, Any] = Body(..., example={"input": "What is my name?", "chat_history": []})):
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{BASE_URL}/chains/execute_chain/", json={"chain_id": chain_id, "query": query})
+        response = await client.post(f"{NLP_CORE_SERVICE}/chains/execute_chain/", json={"chain_id": chain_id, "query": query})
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.json())
         return response.json()
@@ -546,7 +546,7 @@ async def stream_chain(
         chain_id: str = Query(..., title="Chain ID", description="The unique ID of the chain to stream"),
         query: Dict[str, Any] = Body(..., example={"input": "What is my name?", "chat_history": []})):
     async with httpx.AsyncClient() as client:
-        async with client.stream("POST", f"{BASE_URL}/chains/stream_chain/", json={"chain_id": chain_id, "query": query}) as response:
+        async with client.stream("POST", f"{NLP_CORE_SERVICE}/chains/stream_chain/", json={"chain_id": chain_id, "query": query}) as response:
             if response.status_code != 200:
                 raise HTTPException(status_code=response.status_code, detail=response.json())
             async for chunk in response.aiter_text():
