@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 8085
 
 # Comando per avviare l'applicazione FastAPI con Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8085". "--workers", "1"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8085". "--workers", "1"]
