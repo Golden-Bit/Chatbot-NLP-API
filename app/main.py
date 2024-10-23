@@ -523,3 +523,31 @@ async def configure_and_load_chain(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Errore interno: {str(e)}")
 
+# Retrieve info associated with a single context (by ID or name)
+@app.get("/context_info/{context_name}", response_model=Dict[str, Any])
+async def get_context_info(context_name: str):
+    result = await create_context_on_server(context_name)
+    return result
+
+# Chain Execute API Interface
+@app.post("/execute_chain", response_model=Dict[str, Any])
+async def execute_chain(
+        chain_id: str = Query(..., title="Chain ID", description="The unique ID of the chain to execute"),
+        query: Dict[str, Any] = Body(..., example={"input": "What is my name?", "chat_history": []})):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f"{BASE_URL}/chains/execute_chain/", json={"chain_id": chain_id, "query": query})
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.json())
+        return response.json()
+
+# Chain Stream API Interface
+@app.post("/stream_chain")
+async def stream_chain(
+        chain_id: str = Query(..., title="Chain ID", description="The unique ID of the chain to stream"),
+        query: Dict[str, Any] = Body(..., example={"input": "What is my name?", "chat_history": []})):
+    async with httpx.AsyncClient() as client:
+        async with client.stream("POST", f"{BASE_URL}/chains/stream_chain/", json={"chain_id": chain_id, "query": query}) as response:
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.json())
+            async for chunk in response.aiter_text():
+                yield chunk
